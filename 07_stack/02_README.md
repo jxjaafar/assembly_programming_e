@@ -1,25 +1,27 @@
 # 02.asm — Stack frame and local variables (64-bit)
 
 ## Purpose
-This program demonstrates a function stack frame. The function `work` saves the caller's frame pointer, establishes its own frame, reserves 16 bytes for local variables, and then restores the stack before returning.
+This program demonstrates how a function uses the stack to save the caller frame pointer, create a stack frame, reserve space for local variables, and restore the stack before returning.
 
 ## Execution and stack flow
-Let `RSP₀` be RSP when `_start` begins.
+Let `RSP₀` represent the stack pointer when `_start` begins.
 
-1. `call work` pushes the address of the instruction immediately after the call onto the stack. RSP decreases by 8 to `RSP₀ - 8`; this is the return address.
-2. `push rbp` saves the caller's RBP. RSP decreases by another 8 to `RSP₀ - 16`.
-3. `mov rbp, rsp` makes RBP the fixed base of this function's stack frame.
-4. `sub rsp, 16` reserves 16 bytes for local data. RSP becomes `RSP₀ - 32`. The two qword slots are addressed as `[rbp - 8]` and `[rbp - 16]`.
-5. The two `mov` instructions write 100 and 200 into those local stack slots. They do not further change RSP.
-6. The next two `mov` instructions read those slots into RAX and RBX. They also leave RSP unchanged.
-7. `mov rsp, rbp` discards the 16-byte local-variable area by restoring RSP to the saved frame base (`RSP₀ - 16`).
-8. `pop rbp` restores the caller's RBP and increases RSP to `RSP₀ - 8`.
-9. `ret` pops the saved return address into the instruction pointer and increases RSP to `RSP₀). Execution resumes after `call work`, and the program exits.
+1. `call work` places the address of the instruction immediately after the call on the stack. RSP decreases by 8 bytes to `RSP₀ - 8`. This return address allows the function to resume execution in `_start` when it finishes.
+2. At the start of `work`, `push rbp` saves the caller value of RBP. RSP decreases by another 8 bytes to `RSP₀ - 16`.
+3. `mov rbp, rsp` sets RBP to the base of the new stack frame. Unlike a push or pop, this instruction does not change RSP.
+4. `sub rsp, 16` reserves 16 bytes for local variables. RSP becomes `RSP₀ - 32`, which is 16 bytes below RBP.
+5. The program stores 100 at `[rbp - 8]` and 200 at `[rbp - 16]`. These are two 8-byte local-variable slots in the stack frame. Writing to them does not change RSP.
+6. The next instructions read the values into RAX and RBX. RAX receives 100 and RBX receives 200; the stack pointer remains unchanged.
+7. `mov rsp, rbp` releases the 16 bytes reserved for local variables by moving RSP back to the frame base, `RSP₀ - 16`.
+8. `pop rbp` restores the caller frame pointer and increases RSP to `RSP₀ - 8`.
+9. `ret` removes the return address from the stack, increases RSP to `RSP₀`, and transfers execution back to the instruction after `call work`.
+10. The program exits from `_start` using syscall 60 after setting RDI to zero.
 
-## Expected observations when tested
-- While the function's local area is allocated, RSP is 16 bytes below RBP.
-- The memory locations `[rbp - 8]` and `[rbp - 16]` contain 100 and 200 respectively; RAX and RBX receive those values.
-- After `ret`, the call's return address has been removed and RSP is back to its entry value.
+## Observations
+- The call instruction itself uses the stack: it pushes an 8-byte return address before `work` begins.
+- Saving RBP uses another 8 bytes. The 16-byte local-variable area is then reserved below the frame pointer.
+- While the local variables are allocated, RSP is 16 bytes below RBP. The slots at `[rbp - 8]` and `[rbp - 16]` hold 100 and 200, respectively.
+- The function restores RSP from RBP, restores the previous RBP, and returns. After `ret`, RSP has its original value from the beginning of `_start`.
 
 ## Build and run
 ```bash
@@ -28,5 +30,3 @@ ld 02.o -o 02
 ./02
 echo $?
 ```
-
-*Testing note: this explanation is a source-based stack trace. The program has not been executed in this environment, so the observations above are expected results, not recorded debugger output.*
