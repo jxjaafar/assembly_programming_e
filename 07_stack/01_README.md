@@ -1,24 +1,24 @@
 # 01.asm — Basic push and pop (64-bit)
 
 ## Purpose
-This program demonstrates how values are placed on the stack with `push` and retrieved with `pop`. It uses 64-bit registers, so each register push/pop occupies 8 bytes.
+This program demonstrates how the stack stores values and returns them in last-in, first-out (LIFO) order. It uses 64-bit registers, so each push or pop changes RSP by 8 bytes.
 
 ## Execution and stack flow
-Let `RSP₀` be the stack pointer at program entry. The exact address depends on the process, so the changes below are relative.
+Let `RSP₀` represent the value of RSP when `_start` begins.
 
-1. `mov rax, 100` and `mov rbx, 200` load the values into registers. These instructions do not change the stack.
-2. `push rax` decreases RSP by 8, then stores 100 at the new top of the stack. RSP is now `RSP₀ - 8`.
-3. `push rbx` decreases RSP by another 8 and stores 200 above the earlier value. RSP is now `RSP₀ - 16`.
-4. `pop rcx` reads the top value (200) into RCX, then increases RSP by 8. RSP becomes `RSP₀ - 8`.
-5. `pop rdx` reads the next value (100) into RDX, then increases RSP by 8. RSP returns to `RSP₀`.
-6. `nop` does nothing. The program then exits with the Linux x86-64 `syscall` instruction.
+1. `mov rax, 100` and `mov rbx, 200` place the two values in registers. These instructions do not use the stack, so RSP remains at `RSP₀`.
+2. `push rax` moves RSP down by 8 bytes and stores 100 at the new top of the stack. RSP becomes `RSP₀ - 8`.
+3. `push rbx` moves RSP down by another 8 bytes and stores 200. RSP becomes `RSP₀ - 16`. The value 200 is now above 100 and is the first value that will be removed.
+4. The first `nop` leaves the machine state unchanged. At this point, the stack contains 200 at its top, followed by 100.
+5. `pop rcx` copies the top value, 200, into RCX and moves RSP up by 8 bytes. RSP becomes `RSP₀ - 8`.
+6. `pop rdx` copies the next value, 100, into RDX and moves RSP up by another 8 bytes. RSP returns to `RSP₀`.
+7. The second `nop` makes no changes. The program then exits with syscall 60 after clearing RDI.
 
-The order matters: a stack is last-in, first-out (LIFO). The last value pushed (200) is the first value popped.
-
-## Expected observations when tested
-- At the first `nop`: RSP is 16 bytes below its starting value; the top item is 200 and the next item is 100.
-- After the two `pop` instructions: RCX = 200, RDX = 100, and RSP has returned to its starting value.
-- The exit code should be 0 because RDI is cleared before syscall 60.
+## Observations
+- Each 64-bit push decreases RSP by 8 bytes; each pop increases it by 8 bytes.
+- After both pushes, RSP is 16 bytes below its starting value, and the stack order is 200 followed by 100.
+- The pop order is the reverse of the push order: RCX receives 200 and RDX receives 100.
+- Once both values have been popped, RSP is back at `RSP₀`. The program exits with status 0 because RDI is set to zero before the exit syscall.
 
 ## Build and run
 ```bash
@@ -27,5 +27,3 @@ ld 01.o -o 01
 ./01
 echo $?
 ```
-
-*Testing note: this explanation is a source-based stack trace. The program has not been executed in this environment, so the observations above are expected results, not recorded debugger output.*
